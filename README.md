@@ -1,9 +1,6 @@
 # PiVault
-
 PiVault ist ein selbst gehosteter Passwortmanager für den Raspberry Pi 5. Ziel des Projekts ist die sichere Verwaltung von Zugangsdaten über eine Weboberfläche, die im eigenen Netzwerk betrieben wird.
-
 Das Projekt entsteht im Rahmen eines HTL-Projekts und befindet sich in der Entwicklung.
-
 ## Projektziel
 
 Zugangsdaten werden häufig in Browsern oder bei Cloud-Anbietern gespeichert, auf die man keinen Einfluss hat. PiVault ermöglicht es, Passwörter auf eigener Hardware zu speichern und die Daten selbst zu kontrollieren.
