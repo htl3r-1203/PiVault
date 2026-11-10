@@ -1,105 +1,112 @@
 # PiVault
 
-PiVault ist ein selbst gehosteter **Zero-Knowledge-Passwortmanager** (HTL-Projekt), der später auf einem Raspberry Pi betrieben wird. Ver- und Entschlüsselung erfolgen ausschließlich im Browser, der Server speichert nur verschlüsselte Daten.
+PiVault ist ein selbst gehosteter Passwortmanager für den Raspberry Pi 5. Ziel des Projekts ist die sichere Verwaltung von Zugangsdaten über eine Weboberfläche, die im eigenen Netzwerk betrieben wird.
 
-## Technologie-Stack
+Das Projekt entsteht im Rahmen eines HTL-Projekts und befindet sich in der Entwicklung.
+
+## Projektziel
+
+Zugangsdaten werden häufig in Browsern oder bei Cloud-Anbietern gespeichert, auf die man keinen Einfluss hat. PiVault ermöglicht es, Passwörter auf eigener Hardware zu speichern und die Daten selbst zu kontrollieren.
+
+PiVault soll nach dem Zero-Knowledge-Prinzip arbeiten: Passwörter werden bereits im Browser verschlüsselt, bevor sie an den Server gesendet werden. Der Server speichert ausschließlich verschlüsselte Daten und kann sie nicht lesen.
+
+Die Verschlüsselung ist **noch nicht implementiert**. Aktuell existiert die technische Grundlage, die Anwendungsfunktionen folgen in den nächsten Entwicklungsphasen.
+
+## Technologien
 
 | Bereich | Technologie |
 |---|---|
-| Frontend | Vue 3, TypeScript, Vite (nur Build), Vue Router |
-| Webserver | Apache HTTP Server (Auslieferung + Reverse Proxy) |
-| Backend | Python, FastAPI, SQLAlchemy (PyMySQL) |
-| Datenbank | MariaDB 11.4 |
-| Betrieb | Docker, Docker Compose |
-| Kommunikation | REST-API mit JSON |
+| Frontend | Vue 3, TypeScript |
+| Webserver | Apache HTTP Server |
+| Backend | Python, FastAPI, SQLAlchemy |
+| Datenbank | MariaDB |
+| Datenbankmigrationen | Alembic |
+| Containerisierung | Docker Compose |
+| Zielhardware | Raspberry Pi 5 |
 
-```text
-Browser ──HTTP──▶ Apache (frontend) ──/api──▶ FastAPI (backend) ──▶ MariaDB (database)
-                  :8080 (einziger Host-Port)       intern              intern
-```
+Apache liefert das Frontend aus und leitet Anfragen unter `/api` an das Backend weiter. Backend und Datenbank sind nur im internen Docker-Netzwerk erreichbar.
 
-## Projektstruktur
+## Funktionen
 
-```text
-PiVault/
-├── docs/                 Planungsdokumente
-├── frontend/             Vue-3-App + Apache
-│   ├── src/              components, views, router, services (API-Client)
-│   ├── Dockerfile        Multi-Stage: Vite-Build -> Apache
-│   └── apache.conf       SPA-Fallback und Proxy /api
-├── backend/              FastAPI-App
-│   ├── app/              api (nur /api/health), core (Konfiguration), db (SQLAlchemy)
-│   └── Dockerfile
-├── compose.yaml          Dienste frontend, backend, database
-├── .env.example          Vorlage für die Konfiguration
-├── CLAUDE.md             Entwicklungsregeln
-└── README.md
-```
+Geplante Funktionen, die noch nicht umgesetzt sind:
 
-## Voraussetzungen (Fedora)
+- Benutzerregistrierung und Anmeldung
+- Passwortverwaltung
+- Verschlüsselte Tresore
+- Passwortgenerator
+- Suchfunktion
+- Benutzerverwaltung
 
-Docker Engine mit Compose-Plugin, siehe <https://docs.docker.com/engine/install/fedora/>:
+## Installation und Start
 
-```bash
-sudo dnf install docker-ce docker-ce-cli containerd.io docker-compose-plugin   # nach Einrichten des Docker-Repos
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER      # danach neu anmelden
-docker compose version
-```
+Voraussetzung ist eine Installation von Docker mit Docker Compose.
 
-Node.js, Python und MariaDB müssen **nicht** lokal installiert sein.
+1. Konfigurationsvorlage kopieren und Passwörter anpassen:
 
-## Starten
+   ```bash
+   cp .env.example .env
+   ```
 
-```bash
-cp .env.example .env     # Passwörter in .env durch eigene Werte ersetzen
-bash start.sh            # wählt automatisch einen freien Port ab 8080 und gibt die URL aus
-```
+2. Container bauen und starten:
 
-Alternativ ohne Portsuche (feste Port aus `WEB_PORT`, Standard 8080): `docker compose up --build -d`.
+   ```bash
+   docker compose up -d --build
+   ```
 
-- Vue-Startseite: <http://localhost:8080> (bzw. der von `start.sh` ausgegebene Port)
-- Health-Endpunkt: <http://localhost:8080/api/health> → `{"status":"ok"}`
-- API-Dokumentation: <http://localhost:8080/api/docs>
+3. Datenbanktabellen anlegen:
 
-```bash
-curl http://localhost:8080/api/health
-```
+   ```bash
+   docker compose exec backend alembic upgrade head
+   ```
 
-Weitere Befehle:
+Die Weboberfläche ist anschließend unter `http://localhost:8080` erreichbar, der Health-Endpunkt der API unter `http://localhost:8080/api/health`. Die API-Dokumentation von FastAPI liegt unter `http://localhost:8080/api/docs`.
 
-```bash
-docker compose ps                      # Status und Healthchecks
-docker compose logs -f                 # Logs aller Container
-docker compose logs -f backend         # Logs eines Dienstes (frontend | backend | database)
-docker compose stop                    # Stoppen (Daten bleiben erhalten)
-docker compose up --build -d           # nach Codeänderungen neu bauen
-```
+### Konfiguration
 
-Achtung: `docker compose down -v` löscht das Datenbank-Volume und damit alle Daten.
-
-## Umgebungsvariablen (`.env`)
+Die Konfiguration erfolgt über die Datei `.env`:
 
 | Variable | Bedeutung | Standard |
 |---|---|---|
-| `WEB_PORT` | Host-Port von Apache | `8080` |
-| `CORS_ORIGINS` | erlaubte Origins (nur relevant, wenn das Frontend nicht über Apache läuft) | `http://localhost:8080` |
-| `MARIADB_DATABASE` | Datenbankname | `pivault` |
+| `WEB_PORT` | Port, unter dem Apache erreichbar ist | `8080` |
+| `MARIADB_DATABASE` | Name der Datenbank | `pivault` |
 | `MARIADB_USER` | Datenbankbenutzer | `pivault` |
 | `MARIADB_PASSWORD` | Passwort des Datenbankbenutzers | muss gesetzt werden |
 | `MARIADB_ROOT_PASSWORD` | Root-Passwort von MariaDB | muss gesetzt werden |
 
-Die `.env` wird nicht in Git eingecheckt. Das Backend startet auch ohne erreichbare Datenbank, die Verbindung wird erst bei der ersten Abfrage aufgebaut. Das Passwort wird nur beim erstmaligen Anlegen des Volumes übernommen. Eine spätere Änderung in `.env` ändert das Passwort in einer bestehenden Datenbank nicht.
+Die `.env` enthält Zugangsdaten und gehört nicht ins Repository. Die Passwörter werden nur beim ersten Anlegen der Datenbank übernommen.
 
-## Hinweise zum Raspberry-Pi-Deployment (später)
+### Nützliche Befehle
 
-- Die verwendeten Images (`node:22-alpine`, `httpd:2.4-alpine`, `python:3.13-slim`, `mariadb:11.4`) bieten ARM64-Varianten. Auf dem Pi reicht `docker compose up --build -d`, es wird nativ gebaut. Alternativ lässt sich mit `docker buildx` auf dem PC für `linux/arm64` bauen.
-- Raspberry Pi OS 64-Bit verwenden.
-- Produktiv ist HTTPS erforderlich (TLS-Konfiguration in Apache). Das ist noch nicht eingerichtet, lokal wird HTTP verwendet.
-- Passwörter in der `.env` auf dem Pi neu und sicher vergeben, MariaDB-Backups einplanen.
+```bash
+docker compose ps                # Status der Container
+docker compose logs -f backend   # Logs anzeigen (frontend, backend oder database)
+docker compose stop              # Container stoppen, Daten bleiben erhalten
+```
 
-## Entwicklungsstand
+Mit `docker compose down -v` wird das Datenbank-Volume gelöscht und damit alle gespeicherten Daten.
 
-**Phase 1 (Docker-Infrastruktur) ist abgeschlossen:** Vue-Grundprojekt mit Router und API-Client, Apache mit SPA-Fallback und `/api`-Proxy, FastAPI mit `GET /api/health`, vorbereitete MariaDB-Anbindung, drei Container mit Healthchecks und persistentem Volume.
+## Sicherheit
 
-Noch nicht umgesetzt: Registrierung/Login, Tresore und Einträge, Verschlüsselung, Datenbanktabellen und Migrationen, HTTPS und Produktivdeployment.
+Geplant sind:
+
+- Clientseitige Verschlüsselung der Tresorinhalte mit AES-256-GCM im Browser
+- Das Master-Passwort wird nicht an den Server übertragen
+- Speicherung der Benutzerpasswörter als Argon2id-Hash
+- HTTPS über Port 443 für den produktiven Betrieb
+
+Aktuell **nicht** umgesetzt sind Verschlüsselung, Anmeldung und HTTPS. PiVault läuft derzeit ausschließlich über HTTP und sollte in dieser Form nicht produktiv eingesetzt oder mit echten Zugangsdaten verwendet werden.
+
+## Projektstatus
+
+Bereits vorhanden:
+
+- Docker-Infrastruktur mit drei Containern (Apache, FastAPI, MariaDB)
+- Grundgerüst für Frontend (Vue 3 mit Startseite) und Backend (FastAPI mit Health-Endpunkt)
+- MariaDB-Datenbank mit den vier Tabellen `users`, `vaults`, `vault_entries` und `sessions`, verwaltet über Alembic-Migrationen
+
+Folgt später:
+
+- Benutzerregistrierung und Anmeldung
+- Passwortverwaltung und verschlüsselte Tresore
+- Clientseitige Verschlüsselung
+- HTTPS für den produktiven Betrieb
