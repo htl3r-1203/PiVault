@@ -216,3 +216,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+graphify-out/
+start.sh
+
+# Vue / Node.js
+node_modules/
+frontend/dist/
+npm-debug.log*
+
+# Lokale Konfiguration und Zugangsdaten
+.env.*
+!.env.example
+!.env.*.example
+
+# Betriebssystem / Editor
+.DS_Store
+.vscode/

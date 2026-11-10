@@ -1,0 +1,63 @@
+name: pivault
+
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks: [pivault]
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    expose:
+      - "8000"
+    environment:
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      DB_HOST: database
+      DB_PORT: "3306"
+      DB_NAME: ${MARIADB_DATABASE:?in .env setzen}
+      DB_USER: ${MARIADB_USER:?in .env setzen}
+      DB_PASSWORD: ${MARIADB_PASSWORD:?in .env setzen}
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks: [pivault]
+    restart: unless-stopped
+
+  database:
+    image: mariadb:11.4
+    environment:
+      MARIADB_DATABASE: ${MARIADB_DATABASE:?in .env setzen}
+      MARIADB_USER: ${MARIADB_USER:?in .env setzen}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?in .env setzen}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?in .env setzen}
+    volumes:
+      - pivault_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [pivault]
+    restart: unless-stopped
+
+networks:
+  pivault:
+
+volumes:
+  pivault_db_data:
