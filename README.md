@@ -17,7 +17,6 @@ Die Verschlüsselung ist **noch nicht implementiert**. Aktuell existiert die tec
 | Webserver | Apache HTTP Server |
 | Backend | Python, FastAPI, SQLAlchemy |
 | Datenbank | MariaDB |
-| Datenbankmigrationen | Alembic |
 | Containerisierung | Docker Compose |
 | Zielhardware | Raspberry Pi 5 |
 
@@ -50,11 +49,33 @@ Voraussetzung ist eine Installation von Docker mit Docker Compose.
    docker compose up -d --build
    ```
 
-3. Datenbanktabellen anlegen:
+Die Datenbanktabellen werden beim ersten Start der Datenbank automatisch aus `database/schema.sql` angelegt (nur bei leerem Datenbank-Volume). Im selben Schritt beschränkt `database/privileges.sh` den Anwendungsbenutzer auf `SELECT`, `INSERT`, `UPDATE` und `DELETE`.
+
+### Bestehende Datenbank aktualisieren
+
+`schema.sql` wird nur bei einem leeren Volume ausgeführt. Eine bereits vorhandene Datenbank wird mit den Skripten in `database/migrations/` in der Reihenfolge ihrer Nummern aktualisiert. Die Skripte löschen keine Tabellen und sind wiederholbar. Vorgehen:
+
+1. Backup anlegen:
 
    ```bash
-   docker compose exec backend alembic upgrade head
+   docker compose exec -T database sh -c 'mariadb-dump -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' > backup_vor_migration.sql
    ```
+
+2. Änderungsskript ausführen (hier `001`):
+
+   ```bash
+   docker compose exec -T database sh -c 'mariadb -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < database/migrations/001_auth_keys_sessions.sql
+   ```
+
+3. Die eingeschränkten Rechte des Anwendungsbenutzers einmalig setzen (nach einem `docker compose up -d`, das die Datei einhängt):
+
+   ```bash
+   docker compose exec database sh /docker-entrypoint-initdb.d/02-privileges.sh
+   ```
+
+4. Container mit dem aktuellen Backend neu bauen: `docker compose up -d --build`
+
+Die Migration muss immer **vor** dem Start des neuen Backends laufen.
 
 Die Weboberfläche ist anschließend unter `http://localhost:8080` erreichbar, der Health-Endpunkt der API unter `http://localhost:8080/api/health`. Die API-Dokumentation von FastAPI liegt unter `http://localhost:8080/api/docs`.
 
@@ -99,7 +120,7 @@ Bereits vorhanden:
 
 - Docker-Infrastruktur mit drei Containern (Apache, FastAPI, MariaDB)
 - Grundgerüst für Frontend (Vue 3 mit Startseite) und Backend (FastAPI mit Health-Endpunkt)
-- MariaDB-Datenbank mit den vier Tabellen `users`, `vaults`, `vault_entries` und `sessions`, verwaltet über Alembic-Migrationen
+- MariaDB-Datenbank mit den vier Tabellen `users`, `vaults`, `vault_entries` und `sessions`, definiert in `database/schema.sql` (inklusive Feldern für die clientseitige Schlüsselverwaltung und für Sessions mit gehashtem Token)
 
 Folgt später:
 

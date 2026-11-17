@@ -1,7 +1,7 @@
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase
 
-# Feste Namen für Constraints, damit Alembic-Migrationen reproduzierbar sind
+# Feste Namen für Constraints, passend zu database/schema.sql
 NAMING_CONVENTION = {
     "ix": "ix_%(column_0_label)s",
     "uq": "uq_%(table_name)s_%(column_0_name)s",

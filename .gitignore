@@ -232,3 +232,4 @@ npm-debug.log*
 # Betriebssystem / Editor
 .DS_Store
 .vscode/
+CLAUDE.md

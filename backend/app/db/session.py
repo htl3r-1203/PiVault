@@ -23,7 +23,8 @@ def get_engine() -> Engine:
         database=settings.db_name,
         query={"charset": "utf8mb4"},
     )
-    return create_engine(url, pool_pre_ping=True)
+    # Kurzer Verbindungs-Timeout, damit der Healthcheck bei ausgefallener DB schnell antwortet
+    return create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 3})
 
 
 def get_db():

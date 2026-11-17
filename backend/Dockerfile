@@ -9,8 +9,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
-COPY alembic.ini ./
-COPY alembic ./alembic
 
 # Anwendung läuft ohne Root-Rechte
 RUN useradd --system --no-create-home pivault
