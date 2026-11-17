@@ -1,0 +1,75 @@
+/* Gemeinsame, schlichte Formularstile für Anmeldung und Registrierung (Stil wie die Startseite) */
+.auth {
+  font-family: system-ui, sans-serif;
+  max-width: 24rem;
+  margin: 4rem auto;
+  padding: 0 1rem;
+}
+
+.auth h1 {
+  text-align: center;
+}
+
+.auth form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.auth label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.95rem;
+}
+
+.auth input {
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid #888;
+  border-radius: 4px;
+}
+
+.auth input[aria-invalid='true'] {
+  border-color: #c0392b;
+}
+
+.auth button {
+  font: inherit;
+  padding: 0.6rem;
+  cursor: pointer;
+}
+
+.auth button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.auth .hint {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.auth .field-error,
+.auth .form-error {
+  color: #c0392b;
+  font-size: 0.85rem;
+}
+
+.auth .form-error {
+  border: 1px solid #c0392b;
+  border-radius: 4px;
+  padding: 0.5rem;
+}
+
+.auth .form-success {
+  color: #1e7e34;
+  border: 1px solid #1e7e34;
+  border-radius: 4px;
+  padding: 0.5rem;
+}
+
+.auth .switch {
+  text-align: center;
+  font-size: 0.9rem;
+}

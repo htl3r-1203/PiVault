@@ -22,9 +22,14 @@ set -eu
 : "${MARIADB_DATABASE:?MARIADB_DATABASE fehlt}"
 : "${MARIADB_ROOT_PASSWORD:?MARIADB_ROOT_PASSWORD fehlt}"
 
+# Das MariaDB-Image vergibt die Rechte auf den Datenbanknamen mit maskierten
+# Unterstrichen (db\_name, weil "_" bei GRANT ein Platzhalter ist). Gleich maskieren,
+# sonst findet REVOKE den bestehenden Grant nicht.
+DB_ESCAPED=$(printf '%s' "${MARIADB_DATABASE}" | sed 's/_/\\_/g')
+
 mariadb -u root -p"${MARIADB_ROOT_PASSWORD}" <<SQL
-REVOKE ALL PRIVILEGES ON \`${MARIADB_DATABASE}\`.* FROM '${MARIADB_USER}'@'%';
-GRANT SELECT, INSERT, UPDATE, DELETE ON \`${MARIADB_DATABASE}\`.* TO '${MARIADB_USER}'@'%';
+REVOKE ALL PRIVILEGES ON \`${DB_ESCAPED}\`.* FROM '${MARIADB_USER}'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON \`${DB_ESCAPED}\`.* TO '${MARIADB_USER}'@'%';
 FLUSH PRIVILEGES;
 SQL
 

@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     db_user: str = ""
     db_password: str = ""
 
+    # Sessions: Cookie-Flag Secure (für HTTPS auf true setzen, lokal über HTTP false)
+    cookie_secure: bool = False
+    # Absolute Lebensdauer einer Session (expires_at) und Inaktivitäts-Timeout, in Minuten
+    session_lifetime_minutes: int = 480
+    session_idle_timeout_minutes: int = 30
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
