@@ -27,7 +27,8 @@ set -eu
 # sonst findet REVOKE den bestehenden Grant nicht.
 DB_ESCAPED=$(printf '%s' "${MARIADB_DATABASE}" | sed 's/_/\\_/g')
 
-mariadb -u root -p"${MARIADB_ROOT_PASSWORD}" <<SQL
+# Verwende MYSQL_PWD, um das Passwort nicht in der Prozessliste (ps) preiszugeben
+MYSQL_PWD="${MARIADB_ROOT_PASSWORD}" mariadb -u root <<SQL
 REVOKE ALL PRIVILEGES ON \`${DB_ESCAPED}\`.* FROM '${MARIADB_USER}'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON \`${DB_ESCAPED}\`.* TO '${MARIADB_USER}'@'%';
 FLUSH PRIVILEGES;

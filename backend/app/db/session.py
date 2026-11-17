@@ -17,18 +17,25 @@ def get_engine() -> Engine:
     url = URL.create(
         drivername="mysql+pymysql",
         username=settings.db_user,
-        password=settings.db_password,
+        password=settings.resolved_db_password,
         host=settings.db_host,
         port=settings.db_port,
         database=settings.db_name,
         query={"charset": "utf8mb4"},
     )
-    # Kurzer Verbindungs-Timeout, damit der Healthcheck bei ausgefallener DB schnell antwortet
-    return create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 3})
+    # Kurzer Verbindungs-Timeout, Pool-Begrenzung gegen Ressourcenerschöpfung auf dem Pi 5
+    return create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=10,
+        pool_recycle=1800,
+        connect_args={"connect_timeout": 3},
+    )
 
 
 def get_db():
-    """FastAPI-Dependency für eine Datenbank-Session (noch von keinem Endpunkt genutzt)."""
+    """FastAPI-Dependency für eine Datenbank-Session."""
     session: Session = sessionmaker(bind=get_engine(), autoflush=False)()
     try:
         yield session

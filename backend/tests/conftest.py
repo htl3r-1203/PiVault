@@ -18,6 +18,7 @@ if settings.db_name != "pivault_test":
     )
 
 from app.api.deps import AuthContext, get_auth  # noqa: E402
+from app.core.rate_limit import rate_limiter  # noqa: E402
 from app.db.session import get_engine  # noqa: E402
 from app.main import app  # noqa: E402
 
@@ -37,10 +38,12 @@ app.include_router(_test_router)
 
 @pytest.fixture(autouse=True)
 def clean_db():
+    rate_limiter.reset()
     with get_engine().connect() as conn:
         conn.execute(text("DELETE FROM users"))  # sessions werden per ON DELETE CASCADE mitgelöscht
         conn.commit()
     yield
+    rate_limiter.reset()
 
 
 @pytest.fixture

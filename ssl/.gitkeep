@@ -1,0 +1,3 @@
+# PiVault SSL-Zertifikatsverzeichnis
+# Lege hier bei Bedarf 'fullchain.pem' und 'privkey.pem' ab,
+# um HTTPS in Apache automatisch zu aktivieren.

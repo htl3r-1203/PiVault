@@ -23,6 +23,7 @@ from app.api.deps import (
     user_can_login,
 )
 from app.core.config import settings
+from app.core.rate_limit import rate_limiter
 from app.core.security import (
     csrf_token_for,
     generate_session_token,
@@ -63,7 +64,22 @@ def _client_ip(request: Request) -> str:
 
 
 @router.post("/register", status_code=201, response_model=UserOut)
-def register(payload: RegisterIn, db: Session = Depends(get_db)) -> UserOut:
+def register(payload: RegisterIn, request: Request, db: Session = Depends(get_db)) -> UserOut:
+    # Rate-Limiting für Registrierungen nach Client-IP (Schutz vor automatisiertem Account-Spam)
+    if settings.rate_limit_enabled:
+        client_ip = _client_ip(request)
+        allowed, retry_after = rate_limiter.check_rate_limit(
+            key=f"register:ip:{client_ip}",
+            max_requests=settings.rate_limit_register_per_5_minutes,
+            window_seconds=300,
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail="Zu viele Registrierungsanfragen. Bitte warten Sie einen Moment.",
+                headers={"Retry-After": str(retry_after)},
+            )
+
     # E-Mail wird nicht verifiziert: email_verified_at bleibt NULL.
     user = User(
         username=payload.username,
@@ -88,6 +104,21 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)) -> UserOut:
 
 @router.post("/login", response_model=LoginOut)
 def login(payload: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)) -> LoginOut:
+    # Rate-Limiting vor der teuren Argon2id-Prüfung (Schutz vor DoS und CPU-Exhaustion auf dem Pi 5)
+    if settings.rate_limit_enabled:
+        client_ip = _client_ip(request)
+        allowed, retry_after = rate_limiter.check_rate_limit(
+            key=f"login:ip:{client_ip}",
+            max_requests=settings.rate_limit_login_per_minute,
+            window_seconds=60,
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail="Zu viele Anmeldeversuche. Bitte warten Sie einen Moment.",
+                headers={"Retry-After": str(retry_after)},
+            )
+
     invalid = HTTPException(status_code=401, detail="E-Mail-Adresse/Benutzername oder Passwort ist falsch.")
 
     user = db.scalar(
@@ -96,13 +127,23 @@ def login(payload: LoginIn, request: Request, response: Response, db: Session = 
     if user is None:
         verify_dummy_password(payload.password)  # gleiche Antwortzeit wie bei vorhandenem Konto
         raise invalid
+
     if not verify_password(user.password_hash, payload.password):
+        # Brute-Force-Schutz auf Account-Ebene (Account Lockout)
+        failed_count = rate_limiter.record_failed_attempt(f"user:{user.id}")
+        if failed_count >= settings.max_failed_logins:
+            now = utcnow()
+            user.locked_until = now + timedelta(minutes=settings.account_lockout_minutes)
+            db.commit()
         raise invalid
 
     now = utcnow()
     if not user_can_login(user, now):
         # Erst nach korrekt geprüftem Passwort, damit gesperrte Konten nicht auslesbar sind
         raise HTTPException(status_code=403, detail="Anmeldung nicht möglich: Das Konto ist gesperrt oder deaktiviert.")
+
+    # Bei erfolgreicher Authentifizierung aufeinanderfolgende Fehlversuche zurücksetzen
+    rate_limiter.reset_failed_attempts(f"user:{user.id}")
 
     # Eine zuvor genutzte Session dieses Browsers beenden und abgelaufene Sessions aufräumen
     old_token = request.cookies.get(COOKIE_NAME)

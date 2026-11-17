@@ -15,7 +15,9 @@ RUN sed -i \
       -e 's/^#\(LoadModule proxy_http_module\)/\1/' \
       -e 's/^#\(LoadModule rewrite_module\)/\1/' \
       -e 's/^#\(LoadModule headers_module\)/\1/' \
+      -e 's/^#\(LoadModule ssl_module\)/\1/' \
+      -e 's/^#\(LoadModule socache_shmcb_module\)/\1/' \
       /usr/local/apache2/conf/httpd.conf \
  && echo 'Include conf/extra/pivault.conf' >> /usr/local/apache2/conf/httpd.conf
 COPY --from=build /app/dist/ /usr/local/apache2/htdocs/
-EXPOSE 80
+EXPOSE 80 443
