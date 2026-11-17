@@ -8,6 +8,9 @@ services:
       - "${WEB_SSL_PORT:-8443}:443"
     volumes:
       - ./ssl:/usr/local/apache2/conf/ssl:ro
+    environment:
+      # Für die HTTP->HTTPS-Weiterleitung in apache.conf (öffentlicher HTTPS-Port am Host)
+      WEB_SSL_PORT: ${WEB_SSL_PORT:-8443}
     depends_on:
       backend:
         condition: service_healthy
@@ -26,6 +29,9 @@ services:
       - NET_BIND_SERVICE
       - SETUID
       - SETGID
+      # Nur lesend: Apache (root im Container) muss einen privaten Schlüssel mit Rechten 0600
+      # lesen können, der dem Host-Benutzer gehört. Ohne diese Capability startet Apache mit TLS nicht.
+      - DAC_READ_SEARCH
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m

@@ -9,6 +9,7 @@
 import hashlib
 import hmac
 import secrets
+import threading
 import unicodedata
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -16,8 +17,15 @@ from functools import lru_cache
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 
+from app.core.config import settings
+
 # argon2-cffi: Standardparameter (RFC 9106, "low memory"), Variante Argon2id
 _hasher = PasswordHasher()
+
+# Jede Argon2id-Operation belegt 64 MiB. Ohne Begrenzung könnten bis zu 40 Threads des Thread-Pools gleichzeitig
+# hashen und das Speicherlimit des Containers sprengen (Messung: 120 parallele Logins ~ 970 MiB von 1 GiB).
+# Weitere Anfragen warten, bis ein Platz frei wird.
+_hash_slots = threading.BoundedSemaphore(max(1, settings.max_concurrent_password_hashes))
 
 SESSION_TOKEN_BYTES = 32
 
@@ -33,14 +41,20 @@ def _normalize(password: str) -> bytes:
 
 
 def hash_password(password: str) -> str:
-    return _hasher.hash(_normalize(password))
+    with _hash_slots:
+        return _hasher.hash(_normalize(password))
 
 
-def verify_password(password_hash: str, password: str) -> bool:
+def _verify(password_hash: str, password: str) -> bool:
     try:
         return _hasher.verify(password_hash, _normalize(password))
     except (VerificationError, InvalidHashError):
         return False
+
+
+def verify_password(password_hash: str, password: str) -> bool:
+    with _hash_slots:
+        return _verify(password_hash, password)
 
 
 @lru_cache
@@ -50,7 +64,8 @@ def _dummy_hash() -> str:
 
 def verify_dummy_password(password: str) -> None:
     """Gleicht die Antwortzeit bei unbekanntem Benutzer an (kein Hinweis, ob ein Konto existiert)."""
-    verify_password(_dummy_hash(), password)
+    with _hash_slots:
+        _verify(_dummy_hash(), password)
 
 
 def generate_session_token() -> str:

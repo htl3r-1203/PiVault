@@ -229,6 +229,13 @@ npm-debug.log*
 !.env.example
 !.env.*.example
 
+# TLS-Zertifikate und private Schlüssel (nur das Platzhalter-File bleibt versioniert)
+ssl/*
+!ssl/.gitkeep
+
+# Datenbank-Backups (enthalten Passwort-Hashes und verschlüsselte Tresordaten)
+backups/
+
 # Betriebssystem / Editor
 .DS_Store
 .vscode/

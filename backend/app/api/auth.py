@@ -5,6 +5,8 @@ an das Backend gesendet, und die master_kdf_*- bzw. vault_key_*-Felder bleiben h
 unberührt (NULL = Tresor noch nicht eingerichtet).
 """
 
+import hashlib
+import ipaddress
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -63,13 +65,33 @@ def _client_ip(request: Request) -> str:
     return (request.client.host if request.client else "unknown")[:45]
 
 
+def _rate_limit_ip(ip: str) -> str:
+    """Schlüssel für Limits: IPv6-Adressen werden auf ihr /64-Präfix zusammengefasst, sonst könnte ein
+    Angreifer mit einem eigenen Präfix das Limit durch Adresswechsel umgehen."""
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return ip
+    if isinstance(addr, ipaddress.IPv6Address):
+        if addr.ipv4_mapped:
+            return str(addr.ipv4_mapped)
+        return str(ipaddress.ip_network(f"{addr}/64", strict=False))
+    return str(addr)
+
+
+def _failure_key(ip: str, identifier: str) -> str:
+    """Schlüssel der Fehlversuchs-Bremse: Client-IP + Benutzername/E-Mail (gehasht, feste Länge)."""
+    digest = hashlib.sha256(identifier.strip().lower().encode("utf-8")).hexdigest()[:32]
+    return f"login:fail:{_rate_limit_ip(ip)}:{digest}"
+
+
 @router.post("/register", status_code=201, response_model=UserOut)
 def register(payload: RegisterIn, request: Request, db: Session = Depends(get_db)) -> UserOut:
     # Rate-Limiting für Registrierungen nach Client-IP (Schutz vor automatisiertem Account-Spam)
     if settings.rate_limit_enabled:
         client_ip = _client_ip(request)
         allowed, retry_after = rate_limiter.check_rate_limit(
-            key=f"register:ip:{client_ip}",
+            key=f"register:ip:{_rate_limit_ip(client_ip)}",
             max_requests=settings.rate_limit_register_per_5_minutes,
             window_seconds=300,
         )
@@ -104,11 +126,14 @@ def register(payload: RegisterIn, request: Request, db: Session = Depends(get_db
 
 @router.post("/login", response_model=LoginOut)
 def login(payload: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)) -> LoginOut:
+    client_ip = _client_ip(request)
+    failure_key = _failure_key(client_ip, payload.identifier)
+    failure_window = settings.account_lockout_minutes * 60
+
     # Rate-Limiting vor der teuren Argon2id-Prüfung (Schutz vor DoS und CPU-Exhaustion auf dem Pi 5)
     if settings.rate_limit_enabled:
-        client_ip = _client_ip(request)
         allowed, retry_after = rate_limiter.check_rate_limit(
-            key=f"login:ip:{client_ip}",
+            key=f"login:ip:{_rate_limit_ip(client_ip)}",
             max_requests=settings.rate_limit_login_per_minute,
             window_seconds=60,
         )
@@ -116,6 +141,16 @@ def login(payload: LoginIn, request: Request, response: Response, db: Session = 
             raise HTTPException(
                 status_code=429,
                 detail="Zu viele Anmeldeversuche. Bitte warten Sie einen Moment.",
+                headers={"Retry-After": str(retry_after)},
+            )
+        # Brute-Force-Bremse je (Client-IP, Benutzername/E-Mail). Bewusst NICHT je Konto: Sonst könnte
+        # jeder Fremde mit Fehlversuchen das Konto eines anderen sperren. Die Prüfung erfolgt vor dem
+        # Benutzer-Lookup und gilt für existierende und nicht existierende Konten gleich.
+        blocked, retry_after = rate_limiter.is_blocked(failure_key, settings.max_failed_logins, failure_window)
+        if blocked:
+            raise HTTPException(
+                status_code=429,
+                detail="Zu viele fehlgeschlagene Anmeldeversuche. Bitte später erneut versuchen.",
                 headers={"Retry-After": str(retry_after)},
             )
 
@@ -126,15 +161,13 @@ def login(payload: LoginIn, request: Request, response: Response, db: Session = 
     )
     if user is None:
         verify_dummy_password(payload.password)  # gleiche Antwortzeit wie bei vorhandenem Konto
+        rate_limiter.record_event(failure_key, failure_window)
         raise invalid
 
     if not verify_password(user.password_hash, payload.password):
-        # Brute-Force-Schutz auf Account-Ebene (Account Lockout)
-        failed_count = rate_limiter.record_failed_attempt(f"user:{user.id}")
-        if failed_count >= settings.max_failed_logins:
-            now = utcnow()
-            user.locked_until = now + timedelta(minutes=settings.account_lockout_minutes)
-            db.commit()
+        # Nur die Fehlversuchs-Bremse dieser (IP, Benutzername)-Kombination zählt; users.locked_until
+        # wird hier nie gesetzt (das wäre ein Aussperr-DoS gegen fremde Konten).
+        rate_limiter.record_event(failure_key, failure_window)
         raise invalid
 
     now = utcnow()
@@ -142,8 +175,8 @@ def login(payload: LoginIn, request: Request, response: Response, db: Session = 
         # Erst nach korrekt geprüftem Passwort, damit gesperrte Konten nicht auslesbar sind
         raise HTTPException(status_code=403, detail="Anmeldung nicht möglich: Das Konto ist gesperrt oder deaktiviert.")
 
-    # Bei erfolgreicher Authentifizierung aufeinanderfolgende Fehlversuche zurücksetzen
-    rate_limiter.reset_failed_attempts(f"user:{user.id}")
+    # Bei erfolgreicher Authentifizierung die Fehlversuche dieser Kombination zurücksetzen
+    rate_limiter.clear(failure_key)
 
     # Eine zuvor genutzte Session dieses Browsers beenden und abgelaufene Sessions aufräumen
     old_token = request.cookies.get(COOKIE_NAME)

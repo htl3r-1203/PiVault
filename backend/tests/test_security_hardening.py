@@ -1,7 +1,7 @@
 """Regressionstests für die implementierten Sicherheits- und Härtungsmaßnahmen:
 
 - Rate-Limiting für Login und Registrierung (429 Too Many Requests, Retry-After)
-- Brute-Force-Schutz & Account Lockout (users.locked_until)
+- Brute-Force-Bremse je (IP, Benutzername) ohne Aussperr-DoS; manuelle Sperre (users.locked_until)
 - Request-Body-Größenbegrenzung (413 Payload Too Large)
 - HTTP-Sicherheitsheader (X-Content-Type-Options, X-Frame-Options, Referrer-Policy)
 - Deaktivierung der OpenAPI-Dokumentation in Produktion
@@ -52,9 +52,13 @@ class TestRateLimitingAndBruteForce:
         assert "Zu viele Registrierungsanfragen" in r.json()["detail"]
         assert "retry-after" in r.headers
 
-    def test_account_lockout_after_consecutive_failed_logins(self, client, db, registered):
-        """5 aufeinanderfolgende Fehlversuche sperren das Konto (users.locked_until)."""
-        # Wir setzen das IP-Rate-Limit temporär hoch, um das Account-Lockout isoliert zu prüfen
+    def test_failed_logins_block_only_the_attacking_ip_not_the_account(self, client, db, registered):
+        """5 Fehlversuche blockieren nur die Kombination aus IP und Benutzername, nicht das Konto.
+
+        (Früher setzte das users.locked_until: Jeder Fremde konnte damit fremde Konten aussperren.
+        Ausführlichere Tests: test_lockout_dos.py)
+        """
+        # Das allgemeine IP-Limit temporär hoch setzen, um die Fehlversuchs-Bremse isoliert zu prüfen
         orig_limit = settings.rate_limit_login_per_minute
         settings.rate_limit_login_per_minute = 100
         try:
@@ -65,23 +69,28 @@ class TestRateLimitingAndBruteForce:
                 )
                 assert r.status_code == 401
 
-            # Prüfe, dass locked_until in der Datenbank gesetzt wurde
-            row = db.execute(
-                text("SELECT locked_until FROM users WHERE email = :e"),
-                {"e": registered["email"]},
-            ).mappings().one()
-            assert row["locked_until"] is not None
-            assert row["locked_until"] > utcnow()
+            # Dieselbe IP wird für dieses Konto gebremst (429), auch mit dem richtigen Passwort
+            r = client.post("/api/auth/login", json={"identifier": registered["email"], "password": PASSWORD})
+            assert r.status_code == 429
+            assert "retry-after" in r.headers
 
-            # Anmeldung mit KORREKTEM Passwort wird nun mit 403 abgewiesen
+            # Das Konto selbst bleibt unverändert und ist von einer anderen IP aus nutzbar
+            assert db.execute(text("SELECT locked_until FROM users")).scalar() is None
             r = client.post(
                 "/api/auth/login",
                 json={"identifier": registered["email"], "password": PASSWORD},
+                headers={"X-Forwarded-For": "198.51.100.7"},
             )
-            assert r.status_code == 403
-            assert "gesperrt" in r.json()["detail"]
+            assert r.status_code == 200
         finally:
             settings.rate_limit_login_per_minute = orig_limit
+
+    def test_manually_locked_account_is_rejected_with_403(self, client, db, registered):
+        """Eine manuell gesetzte Sperre (users.locked_until) wird nach korrektem Passwort mit 403 gemeldet."""
+        db.execute(text("UPDATE users SET locked_until = :t"), {"t": utcnow() + timedelta(hours=1)})
+        r = client.post("/api/auth/login", json={"identifier": registered["email"], "password": PASSWORD})
+        assert r.status_code == 403
+        assert "gesperrt" in r.json()["detail"]
 
     def test_successful_login_resets_failed_attempts(self, client, registered):
         """Erfolgreicher Login setzt den Zähler für Fehlversuche zurück."""
@@ -108,6 +117,33 @@ class TestRequestSizeLimit:
         )
         assert r.status_code == 413
         assert "Anfragekörper überschreitet die maximal erlaubte Größe" in r.json()["detail"]
+
+    def test_streamed_oversized_payload_without_content_length_rejected(self, client):
+        """Auch gestreamte Bodys ohne Content-Length (chunked) werden mit 413 statt 400 abgewiesen."""
+
+        def chunks():
+            for _ in range(3):
+                yield b"x" * (settings.max_request_body_bytes // 2)
+
+        r = client.post("/api/auth/login", content=chunks(), headers={"Content-Type": "application/json"})
+        assert r.status_code == 413
+
+
+class TestUnexpectedErrors:
+    def test_unhandled_exception_returns_generic_500_without_internals(self):
+        """Unerwartete Fehler geben weder Meldung noch Stacktrace an den Client."""
+        from fastapi.testclient import TestClient
+
+        from app.main import app
+
+        @app.get("/api/_test/boom")
+        def boom():
+            raise RuntimeError("interne-details passwort=hunter2")
+
+        r = TestClient(app, raise_server_exceptions=False).get("/api/_test/boom")
+        assert r.status_code == 500
+        assert r.json() == {"detail": "Interner Serverfehler."}
+        assert "hunter2" not in r.text and "RuntimeError" not in r.text
 
 
 class TestSecurityHeaders:
@@ -153,3 +189,34 @@ class TestPasswordFileResolution:
             db_password_file=None,
         )
         assert test_settings.resolved_db_password == "standard_env_password"
+
+
+class TestPasswordHashingConcurrency:
+    def test_concurrent_argon2_operations_are_limited(self, monkeypatch):
+        """Gleichzeitige Hash-Operationen sind begrenzt (jede belegt 64 MiB RAM), weitere warten."""
+        import threading
+        import time
+
+        from app.core import security
+
+        limit = settings.max_concurrent_password_hashes
+        lock = threading.Lock()
+        state = {"running": 0, "peak": 0}
+
+        class SlowHasher:
+            def verify(self, *_args):
+                with lock:
+                    state["running"] += 1
+                    state["peak"] = max(state["peak"], state["running"])
+                time.sleep(0.05)
+                with lock:
+                    state["running"] -= 1
+                return True
+
+        monkeypatch.setattr(security, "_hasher", SlowHasher())
+        threads = [threading.Thread(target=security.verify_password, args=("h", "p")) for _ in range(limit * 4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert 1 <= state["peak"] <= limit

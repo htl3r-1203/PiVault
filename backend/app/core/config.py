@@ -35,8 +35,14 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_login_per_minute: int = 5
     rate_limit_register_per_5_minutes: int = 3
+    # Brute-Force-Bremse: max_failed_logins Fehlversuche je (Client-IP, Benutzername/E-Mail) innerhalb von
+    # account_lockout_minutes, danach 429 nur für diese Kombination. Konten werden nie automatisch gesperrt
+    # (users.locked_until ist für manuelle Sperren), damit Fremde niemanden aussperren können.
     max_failed_logins: int = 5
     account_lockout_minutes: int = 15
+
+    # Höchstzahl gleichzeitiger Argon2id-Operationen (je 64 MiB RAM); weitere Anfragen warten
+    max_concurrent_password_hashes: int = 4
 
     # Request-Größenbegrenzung (Schutz vor DoS durch riesige Payloads; 1 MB Standard)
     max_request_body_bytes: int = 1_048_576

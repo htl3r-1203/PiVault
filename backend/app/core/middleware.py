@@ -43,21 +43,37 @@ class ContentSizeLimitMiddleware:
                 pass
 
         total_bytes = 0
+        response_started = False
+        rejected = False
 
         async def limited_receive() -> dict:
-            nonlocal total_bytes
+            nonlocal total_bytes, rejected
             message = await receive()
             if message["type"] == "http.request":
                 body = message.get("body", b"")
                 total_bytes += len(body)
                 if total_bytes > self.max_bytes:
+                    # Sofort mit 413 antworten: FastAPI würde die Exception beim Lesen des Bodys
+                    # sonst abfangen und als 400 ("error parsing the body") melden.
+                    if not response_started and not rejected:
+                        rejected = True
+                        await self._send_413(send)
                     raise PayloadTooLargeError()
             return message
 
+        async def guarded_send(message: dict) -> None:
+            nonlocal response_started
+            if rejected:
+                return  # 413 wurde bereits gesendet, weitere Antworten der Anwendung verwerfen
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+
         try:
-            await self.app(scope, limited_receive, send)
+            await self.app(scope, limited_receive, guarded_send)
         except PayloadTooLargeError:
-            await self._send_413(send)
+            if not response_started and not rejected:
+                await self._send_413(send)
 
     async def _send_413(self, send: Send) -> None:
         response_body = json.dumps(

@@ -30,6 +30,7 @@ def get_engine() -> Engine:
         pool_size=5,
         max_overflow=10,
         pool_recycle=1800,
+        hide_parameters=True,  # Parameter (E-Mail, Hashes) erscheinen nicht in Fehlermeldungen/Logs
         connect_args={"connect_timeout": 3},
     )
 
