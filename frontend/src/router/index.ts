@@ -1,13 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import AppLayout from '../components/layout/AppLayout.vue'
+import GeneratorView from '../views/GeneratorView.vue'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
+import SettingsView from '../views/SettingsView.vue'
+import VaultsView from '../views/VaultsView.vue'
 import { authState, loadUser } from '@/services/auth'
 
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
     guestOnly?: boolean
+    /** Welche Einträge das Dashboard zeigt */
+    scope?: 'all' | 'favorites'
   }
 }
 
@@ -15,10 +21,17 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      // Geschützter Bereich mit Sidebar; alle Kindrouten benötigen eine Session
       path: '/',
-      name: 'home',
-      component: HomeView,
+      component: AppLayout,
       meta: { requiresAuth: true },
+      children: [
+        { path: '', name: 'home', component: HomeView, meta: { scope: 'all' } },
+        { path: 'favorites', name: 'favorites', component: HomeView, meta: { scope: 'favorites' } },
+        { path: 'vaults', name: 'vaults', component: VaultsView },
+        { path: 'generator', name: 'generator', component: GeneratorView },
+        { path: 'settings', name: 'settings', component: SettingsView },
+      ],
     },
     {
       path: '/login',
@@ -32,6 +45,7 @@ const router = createRouter({
       component: RegisterView,
       meta: { guestOnly: true },
     },
+    { path: '/:pathMatch(.*)*', redirect: { name: 'home' } },
   ],
 })
 

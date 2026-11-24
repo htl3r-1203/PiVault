@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/services/api'
 import { login } from '@/services/auth'
-import '@/assets/auth-form.css'
+import AuthLayout from '@/components/layout/AuthLayout.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,24 +41,42 @@ async function submit() {
 </script>
 
 <template>
-  <main class="auth">
-    <h1>Anmelden</h1>
-    <p v-if="registered" class="form-success" role="status">
+  <AuthLayout title="Anmelden" subtitle="Willkommen zurück bei PiVault.">
+    <p v-if="registered" class="alert-box alert-box--success" role="status">
       Registrierung erfolgreich. Bitte jetzt anmelden.
     </p>
-    <form novalidate @submit.prevent="submit">
-      <label>
-        E-Mail-Adresse oder Benutzername
-        <input v-model="identifier" type="text" name="identifier" autocomplete="username" required />
-      </label>
-      <label>
-        Passwort
-        <input v-model="password" type="password" name="password" autocomplete="current-password" required />
-        <span class="hint">Das Login-Passwort, nicht das Master-Passwort.</span>
-      </label>
-      <p v-if="error" class="form-error" role="alert">{{ error }}</p>
-      <button type="submit" :disabled="loading">{{ loading ? 'Bitte warten …' : 'Anmelden' }}</button>
+    <form class="auth-form" novalidate @submit.prevent="submit">
+      <div class="field">
+        <label class="field__label" for="login-identifier">E-Mail-Adresse oder Benutzername</label>
+        <input
+          id="login-identifier"
+          v-model="identifier"
+          class="input"
+          type="text"
+          name="identifier"
+          autocomplete="username"
+          required
+        />
+      </div>
+      <div class="field">
+        <label class="field__label" for="login-password">Passwort</label>
+        <input
+          id="login-password"
+          v-model="password"
+          class="input"
+          type="password"
+          name="password"
+          autocomplete="current-password"
+          aria-describedby="login-password-hint"
+          required
+        />
+        <span id="login-password-hint" class="field__hint">Das Login-Passwort, nicht das Master-Passwort.</span>
+      </div>
+      <p v-if="error" class="alert-box alert-box--error" role="alert">{{ error }}</p>
+      <button type="submit" class="btn btn--primary btn--block" :disabled="loading">
+        {{ loading ? 'Bitte warten …' : 'Anmelden' }}
+      </button>
     </form>
-    <p class="switch">Noch kein Konto? <RouterLink :to="{ name: 'register' }">Registrieren</RouterLink></p>
-  </main>
+    <p class="auth-switch">Noch kein Konto? <RouterLink :to="{ name: 'register' }">Registrieren</RouterLink></p>
+  </AuthLayout>
 </template>
