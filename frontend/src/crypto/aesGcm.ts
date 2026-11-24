@@ -38,7 +38,8 @@ export function isCryptoAvailable(): boolean {
   return typeof globalThis.crypto?.subtle?.encrypt === 'function'
 }
 
-function getSubtle(): SubtleCrypto {
+/** Liefert crypto.subtle oder wirft CryptoUnavailableError (siehe Hinweis zum sicheren Kontext oben). */
+export function getSubtle(): SubtleCrypto {
   const subtle = globalThis.crypto?.subtle
   if (!subtle) {
     // isSecureContext ist im Browser false, wenn die Seite über unverschlüsseltes HTTP geladen wurde

@@ -36,6 +36,14 @@ async function expectDecryptionError(promise: Promise<unknown>) {
   expect((error as DecryptionError).code).toBe('decryption-failed')
 }
 
+describe('Fehlernamen (stabil, auch im minifizierten Build)', () => {
+  it('jede Fehlerklasse hat einen festen Namen', () => {
+    expect(new CryptoFormatError('x').name).toBe('CryptoFormatError')
+    expect(new CryptoUnavailableError('x').name).toBe('CryptoUnavailableError')
+    expect(new DecryptionError().name).toBe('DecryptionError')
+  })
+})
+
 describe('Roundtrip', () => {
   it('entschlüsselt, was verschlüsselt wurde', async () => {
     const key = await generateAesKey()

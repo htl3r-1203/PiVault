@@ -4,14 +4,14 @@
 // oder Kontextwerte. Der Aufrufer kann am Typ (bzw. an `code`) unterscheiden, was schiefging, und
 // entscheidet selbst, was der Benutzer zu sehen bekommt.
 
-export type CryptoErrorCode = 'unavailable' | 'invalid-input' | 'decryption-failed'
+export type CryptoErrorCode = 'unavailable' | 'invalid-input' | 'decryption-failed' | 'kdf-failed'
 
 export class CryptoError extends Error {
   readonly code: CryptoErrorCode
 
   constructor(code: CryptoErrorCode, message: string) {
     super(message)
-    this.name = new.target.name
+    this.name = 'CryptoError'
     this.code = code
   }
 }
@@ -20,6 +20,7 @@ export class CryptoError extends Error {
 export class CryptoUnavailableError extends CryptoError {
   constructor(message: string) {
     super('unavailable', message)
+    this.name = 'CryptoUnavailableError'
   }
 }
 
@@ -27,6 +28,7 @@ export class CryptoUnavailableError extends CryptoError {
 export class CryptoFormatError extends CryptoError {
   constructor(message: string) {
     super('invalid-input', message)
+    this.name = 'CryptoFormatError'
   }
 }
 
@@ -40,5 +42,17 @@ export class DecryptionError extends CryptoError {
       'decryption-failed',
       'Die Daten konnten nicht entschlüsselt werden (falscher Schlüssel, falscher Kontext oder beschädigte Daten).',
     )
+    this.name = 'DecryptionError'
+  }
+}
+
+/**
+ * Die Schlüsselableitung (Argon2id) ist technisch gescheitert, z. B. wegen zu wenig Arbeitsspeicher oder
+ * weil der Worker nicht arbeiten konnte. Die Meldung enthält keine Eingaben und keine Parameterwerte.
+ */
+export class KdfError extends CryptoError {
+  constructor() {
+    super('kdf-failed', 'Die Schlüsselableitung ist fehlgeschlagen (z. B. zu wenig Arbeitsspeicher auf diesem Gerät).')
+    this.name = 'KdfError'
   }
 }
