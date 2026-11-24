@@ -5,8 +5,17 @@ import { nextTick, onMounted, ref, useId, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
 
 const props = withDefaults(
-  defineProps<{ open: boolean; title: string; variant?: 'center' | 'side'; closeLabel?: string }>(),
-  { variant: 'center', closeLabel: 'Schließen' },
+  defineProps<{
+    open: boolean
+    title: string
+    variant?: 'center' | 'side'
+    closeLabel?: string
+    /** false: Ein Klick auf den abgedunkelten Hintergrund schließt den Dialog nicht (nur X bzw. Esc) */
+    closeOnBackdrop?: boolean
+    /** Breitere Variante für Formulare mit zwei Spalten */
+    wide?: boolean
+  }>(),
+  { variant: 'center', closeLabel: 'Schließen', closeOnBackdrop: true, wide: false },
 )
 const emit = defineEmits<{ close: [] }>()
 
@@ -32,7 +41,7 @@ function onCancel(event: Event) {
 
 // Klick auf den abgedunkelten Hintergrund
 function onClick(event: MouseEvent) {
-  if (event.target === dialog.value) emit('close')
+  if (props.closeOnBackdrop && event.target === dialog.value) emit('close')
 }
 </script>
 
@@ -40,7 +49,7 @@ function onClick(event: MouseEvent) {
   <dialog
     ref="dialog"
     class="dialog"
-    :class="`dialog--${variant}`"
+    :class="[`dialog--${variant}`, { 'dialog--wide': wide }]"
     :aria-labelledby="titleId"
     @cancel="onCancel"
     @click="onClick"
@@ -93,6 +102,10 @@ function onClick(event: MouseEvent) {
 
 .dialog--center[open] {
   animation: dialog-in 160ms ease;
+}
+
+.dialog--center.dialog--wide {
+  width: min(44rem, calc(100vw - 2rem));
 }
 
 /* Seitenpanel (Detailansicht); auf kleinen Bildschirmen vollflächig */

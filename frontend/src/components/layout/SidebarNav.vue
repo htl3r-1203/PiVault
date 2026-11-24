@@ -25,7 +25,7 @@ interface NavItem {
 const items = computed<NavItem[]>(() => {
   const ready = vault.state.status === 'ready'
   return [
-    { name: 'home', label: 'Alle Einträge', icon: 'list', count: ready ? vault.state.entries.length : undefined },
+    { name: 'dashboard', label: 'Alle Einträge', icon: 'list', count: ready ? vault.state.entries.length : undefined },
     {
       name: 'favorites',
       label: 'Favoriten',

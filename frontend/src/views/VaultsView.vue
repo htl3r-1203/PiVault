@@ -30,7 +30,7 @@ const cards = computed(() =>
 
     <ul v-else class="grid" aria-label="Tresore">
       <li v-for="card in cards" :key="card.id">
-        <RouterLink :to="{ name: 'home', query: { vault: card.id } }" class="card vcard">
+        <RouterLink :to="{ name: 'dashboard', query: { vault: card.id } }" class="card vcard">
           <span class="vcard__icon"><AppIcon name="vault" :size="22" /></span>
           <span class="vcard__text">
             <span class="vcard__name">{{ card.name }}</span>

@@ -17,7 +17,7 @@ const registered = route.query.registered === '1'
 // Nur interne Pfade als Weiterleitungsziel zulassen (kein Open Redirect)
 function redirectTarget(): string {
   const target = route.query.redirect
-  return typeof target === 'string' && target.startsWith('/') && !target.startsWith('//') ? target : '/'
+  return typeof target === 'string' && target.startsWith('/') && !target.startsWith('//') ? target : '/dashboard'
 }
 
 async function submit() {
@@ -55,6 +55,7 @@ async function submit() {
           type="text"
           name="identifier"
           autocomplete="username"
+          autofocus
           required
         />
       </div>

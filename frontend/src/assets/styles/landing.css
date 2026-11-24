@@ -1,0 +1,42 @@
+/* Gemeinsame Bausteine der öffentlichen Startseite (Design-Tokens aus tokens.css) */
+
+.l-container {
+  width: min(72rem, 100% - 2rem);
+  margin-inline: auto;
+}
+
+.l-section {
+  padding-block: clamp(3.5rem, 8vw, 6rem);
+  /* Platz für den Sticky-Header, wenn per Anker (#funktionen usw.) gescrollt wird */
+  scroll-margin-top: 4rem;
+}
+
+.l-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.l-title {
+  max-width: 40rem;
+  font-size: clamp(1.75rem, 3.6vw, 2.5rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.l-lead {
+  max-width: 40rem;
+  margin-top: var(--space-4);
+  color: var(--text-muted);
+  font-size: clamp(1rem, 1.6vw, 1.125rem);
+}
+
+.l-head {
+  margin-bottom: clamp(2rem, 5vw, 3rem);
+}

@@ -1,71 +1,43 @@
 <script setup lang="ts">
-import AppLogo from '../common/AppLogo.vue'
+// Rahmen für Anmeldung und Registrierung: ein Dialog über der Startseite. Die Landingpage bleibt dahinter
+// sichtbar. Zurück zur Startseite geht es über das X (und per Tastatur mit Esc); ein Klick auf den
+// abgedunkelten Hintergrund schließt den Dialog bewusst nicht.
+import { useRouter } from 'vue-router'
+import BaseDialog from '../common/BaseDialog.vue'
 
-defineProps<{ title: string; subtitle?: string }>()
+defineProps<{ title: string; subtitle?: string; wide?: boolean }>()
+
+const router = useRouter()
+
+function close() {
+  void router.push({ name: 'landing' })
+}
 </script>
 
 <template>
-  <main class="auth">
-    <div class="auth__card">
-      <div class="auth__brand"><AppLogo :size="36" /></div>
-      <h1 class="auth__title">{{ title }}</h1>
-      <p v-if="subtitle" class="auth__sub">{{ subtitle }}</p>
-      <slot />
-    </div>
-    <p class="auth__footer">Selbst gehosteter Passwortmanager</p>
-  </main>
+  <BaseDialog
+    :open="true"
+    :title="title"
+    close-label="Schließen und zurück zur Startseite"
+    :close-on-backdrop="false"
+    :wide="wide"
+    @close="close"
+  >
+    <p v-if="subtitle" class="auth__sub">{{ subtitle }}</p>
+    <div class="auth__content"><slot /></div>
+  </BaseDialog>
 </template>
 
 <style scoped>
-.auth {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
-  min-height: 100vh;
-  padding: var(--space-5) var(--space-4);
-  background:
-    radial-gradient(60rem 30rem at 50% -10%, var(--accent-soft), transparent 70%),
-    var(--bg);
-}
-
-.auth__card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  width: min(28rem, 100%);
-  padding: var(--space-6);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-md);
-}
-
-.auth__brand {
-  display: flex;
-  justify-content: center;
-}
-
-.auth__title {
-  text-align: center;
-}
-
 .auth__sub {
-  margin-top: calc(var(--space-2) * -1);
-  text-align: center;
+  margin-bottom: var(--space-4);
   color: var(--text-muted);
   font-size: 0.925rem;
 }
 
-.auth__footer {
-  color: var(--text-faint);
-  font-size: 0.8rem;
-}
-
-@media (max-width: 480px) {
-  .auth__card {
-    padding: var(--space-5) var(--space-4);
-  }
+.auth__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 </style>

@@ -85,6 +85,12 @@
   font-size: 0.85rem;
 }
 
+.btn--lg {
+  min-height: 3rem;
+  padding: 0 var(--space-5);
+  font-size: 1rem;
+}
+
 .btn--block {
   width: 100%;
 }
@@ -251,4 +257,22 @@ select.input {
   background: var(--success-soft);
   border-color: color-mix(in srgb, var(--success) 40%, transparent);
   color: var(--text);
+}
+
+/* Zweispaltige Variante (Registrierung): ab 640 px nebeneinander, darunter untereinander */
+.auth-form--grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
+  align-items: start;
+}
+
+.auth-form__full {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 640px) {
+  .auth-form--grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

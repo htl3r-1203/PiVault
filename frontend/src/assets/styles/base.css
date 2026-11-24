@@ -100,3 +100,12 @@ ul {
     scroll-behavior: auto !important;
   }
 }
+
+/* Hinter einem modalen Dialog (Anmeldung, Detailansicht usw.) nicht scrollen; kein Springen durch die Scrollleiste */
+html {
+  scrollbar-gutter: stable;
+}
+
+html:has(dialog[open]) {
+  overflow: hidden;
+}

@@ -74,8 +74,8 @@ async function submit() {
 </script>
 
 <template>
-  <AuthLayout title="Registrieren" subtitle="Erstelle dein PiVault-Konto.">
-    <form class="auth-form" novalidate @submit.prevent="submit">
+  <AuthLayout title="Registrieren" wide>
+    <form class="auth-form auth-form--grid" novalidate @submit.prevent="submit">
       <div class="field">
         <label class="field__label" for="reg-username">Benutzername</label>
         <input
@@ -85,10 +85,27 @@ async function submit() {
           type="text"
           name="username"
           autocomplete="username"
-          :aria-invalid="!!errors.username" :aria-describedby="errors.username ? 'reg-username-err' : undefined"
+          autofocus
+          :aria-invalid="!!errors.username"
+          :aria-describedby="errors.username ? 'reg-username-err' : undefined"
           required
         />
         <span v-if="errors.username" id="reg-username-err" class="field__error">{{ errors.username }}</span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="reg-email">E-Mail-Adresse</label>
+        <input
+          id="reg-email"
+          v-model="form.email"
+          class="input"
+          type="email"
+          name="email"
+          autocomplete="email"
+          :aria-invalid="!!errors.email"
+          :aria-describedby="errors.email ? 'reg-email-err' : undefined"
+          required
+        />
+        <span v-if="errors.email" id="reg-email-err" class="field__error">{{ errors.email }}</span>
       </div>
       <div class="field">
         <label class="field__label" for="reg-first_name">Vorname</label>
@@ -99,7 +116,8 @@ async function submit() {
           type="text"
           name="first_name"
           autocomplete="given-name"
-          :aria-invalid="!!errors.first_name" :aria-describedby="errors.first_name ? 'reg-first_name-err' : undefined"
+          :aria-invalid="!!errors.first_name"
+          :aria-describedby="errors.first_name ? 'reg-first_name-err' : undefined"
           required
         />
         <span v-if="errors.first_name" id="reg-first_name-err" class="field__error">{{ errors.first_name }}</span>
@@ -113,24 +131,11 @@ async function submit() {
           type="text"
           name="last_name"
           autocomplete="family-name"
-          :aria-invalid="!!errors.last_name" :aria-describedby="errors.last_name ? 'reg-last_name-err' : undefined"
+          :aria-invalid="!!errors.last_name"
+          :aria-describedby="errors.last_name ? 'reg-last_name-err' : undefined"
           required
         />
         <span v-if="errors.last_name" id="reg-last_name-err" class="field__error">{{ errors.last_name }}</span>
-      </div>
-      <div class="field">
-        <label class="field__label" for="reg-email">E-Mail-Adresse</label>
-        <input
-          id="reg-email"
-          v-model="form.email"
-          class="input"
-          type="email"
-          name="email"
-          autocomplete="email"
-          :aria-invalid="!!errors.email" :aria-describedby="errors.email ? 'reg-email-err' : undefined"
-          required
-        />
-        <span v-if="errors.email" id="reg-email-err" class="field__error">{{ errors.email }}</span>
       </div>
       <div class="field">
         <label class="field__label" for="reg-password">Login-Passwort</label>
@@ -141,12 +146,10 @@ async function submit() {
           type="password"
           name="password"
           autocomplete="new-password"
-          :aria-invalid="!!errors.password" :aria-describedby="errors.password ? 'reg-password-err' : 'reg-password-hint'"
+          :aria-invalid="!!errors.password"
+          :aria-describedby="errors.password ? 'reg-password-err' : 'reg-password-hint'"
           required
         />
-        <span id="reg-password-hint" class="field__hint">
-          Mindestens 12 Zeichen. Das Master-Passwort für den Tresor wird später separat festgelegt und nie an den Server gesendet.
-        </span>
         <span v-if="errors.password" id="reg-password-err" class="field__error">{{ errors.password }}</span>
       </div>
       <div class="field">
@@ -158,13 +161,17 @@ async function submit() {
           type="password"
           name="passwordRepeat"
           autocomplete="new-password"
-          :aria-invalid="!!errors.passwordRepeat" :aria-describedby="errors.passwordRepeat ? 'reg-passwordRepeat-err' : undefined"
+          :aria-invalid="!!errors.passwordRepeat"
+          :aria-describedby="errors.passwordRepeat ? 'reg-passwordRepeat-err' : undefined"
           required
         />
         <span v-if="errors.passwordRepeat" id="reg-passwordRepeat-err" class="field__error">{{ errors.passwordRepeat }}</span>
       </div>
-      <p v-if="formError" class="alert-box alert-box--error" role="alert">{{ formError }}</p>
-      <button type="submit" class="btn btn--primary btn--block" :disabled="loading">
+      <p id="reg-password-hint" class="field__hint auth-form__full">
+        Mindestens 12 Zeichen. Das Master-Passwort für den Tresor wird später separat festgelegt und nie an den Server gesendet.
+      </p>
+      <p v-if="formError" class="alert-box alert-box--error auth-form__full" role="alert">{{ formError }}</p>
+      <button type="submit" class="btn btn--primary btn--block auth-form__full" :disabled="loading">
         {{ loading ? 'Bitte warten …' : 'Konto erstellen' }}
       </button>
     </form>
